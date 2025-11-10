@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>RAG Document Q&A Agent (Full Screen)</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    /* ** Full Screen / Full Viewport Style ** */
+
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    
+    /* --- Global Reset & Typography --- */
+    body { 
+      font-family: 'Inter', sans-serif; 
+      background-color: #f7f9fb; 
+      /* Make the body take up the entire viewport, remove default margins/padding */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100vw;
+      height: 100vh;
+      margin: 0;
+      padding: 0; 
+      overflow: hidden; /* Prevents scrollbars from showing when content fills viewport */
+    }
+
+    /* Main container refinement - now takes up most of the screen */
+    .app-container {
+      /* Full viewport height and width (minus a small margin if desired, or go full) */
+      width: 96vw; /* 96% of viewport width */
+      max-width: 1400px; /* Cap the max width for extreme resolutions */
+      height: 96vh; /* 96% of viewport height */
+      min-height: 600px;
+      
+      background-color: #ffffff;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08); 
+      border-radius: 20px; 
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* --- Header (Minimalist) --- */
+    header {
+      background-color: #ffffff;
+      color: #1f2937; 
+      padding: 1rem 1.5rem; 
+      border-bottom: 1px solid #e5e7eb; 
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Status badge (subtle) */
+    #user-status {
+      background-color: #f3f4f6; 
+      color: #4b5563; 
+      padding: 0.25rem 0.6rem;
+      font-weight: 500;
+      font-size: 0.75rem;
+    }
+
+    /* --- Indexing Section (Step 1) --- */
+    .indexing-section {
+      padding: 1.5rem;
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    /* --- Chat Area --- */
+    .chat-container { 
+      flex-grow: 1;
+      overflow-y: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    #chat-history {
+      padding: 1.5rem;
+      flex-grow: 1;
+      overflow-y: auto;
+      background-color: #ffffff;
+    }
+
+    /* --- Chat Bubbles (Clean & Rounded) --- */
+    .chat-bubble { 
+      max-width: 75%; 
+      padding: 0.6rem 1rem;
+      box-shadow: none;
+    }
+    
+    /* Agent Bubble (System/Bot) */
+    .agent-bubble { 
+      background-color: #eef2ff;
+      color: #1f2937;
+      border-radius: 18px; 
+      border-bottom-left-radius: 4px;
+    }
+
+    /* User Bubble */
+    .user-bubble { 
+      background-color: #4f46e5;
+      color: white; 
+      border-radius: 18px;
+      border-bottom-right-radius: 4px;
+    }
+
+    /* --- Input Bar (Step 2) --- */
+    .input-bar {
+      padding: 1rem 1.5rem;
+      border-top: 1px solid #e5e7eb;
+      background-color: #f7f9fb;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .input-group {
+      display: flex;
+      align-items: center;
+      background-color: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 25px; 
+      padding: 0.25rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+    
+    #user-query {
+      flex-grow: 1;
+      padding: 0.75rem 1rem;
+      border: none;
+      border-radius: 25px;
+      outline: none;
+      transition: none;
+    }
+    
+    #user-query:focus {
+      box-shadow: none;
+      border-color: transparent;
+    }
+
+    /* Send Button (Pill shape and color) */
+    #send-button {
+      background-color: #4f46e5; 
+      color: white;
+      font-weight: 500;
+      padding: 0.75rem 1.5rem;
+      border-radius: 25px; 
+      transition: background-color 0.2s;
+      box-shadow: none;
+      margin-left: 0.5rem;
+    }
+    #send-button:hover:not(:disabled) {
+      background-color: #4338ca; 
+    }
+    #send-button:disabled {
+        opacity: 0.6;
+    }
+
+    /* Index Button (Green) */
+    #index-button {
+      background-color: #10b981; 
+      transition: background-color 0.2s;
+      box-shadow: none;
+      padding: 0.6rem 1.25rem;
+      border-radius: 9999px;
+    }
+    #index-button:hover:not(:disabled) {
+      background-color: #059669; 
+    }
+    
+    /* File Input Adjustment */
+    input[type="file"]::file-selector-button {
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <header class="text-gray-800 flex items-center justify-between">
+      <h1 class="text-xl font-semibold">📄 RAG Agent</h1>
+      <span id="user-status" class="text-xs font-medium py-1 px-2 rounded-full">Connecting...</span>
+    </header>
+    
+    <div class="indexing-section">
+      <h2 class="text-lg font-semibold text-gray-800 mb-3">Step 1: Upload & Index Document</h2>
+      <div class="flex items-center space-x-3">
+        <input type="file" id="document-input" accept=".pdf,.docx,.txt" class="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"/>
+        <button id="index-button" class="text-white font-medium disabled:opacity-50" disabled>
+          Index
+        </button>
+      </div>
+      <p id="indexing-status" class="mt-3 text-xs text-gray-500">Select a document to begin. Documents are stored in your private Firestore collection.</p>
+    </div>
+
+    <div class="chat-container">
+      <div id="chat-history" class="space-y-4">
+        <div class="flex justify-start">
+          <div class="chat-bubble agent-bubble whitespace-pre-wrap">
+            Hello! Please upload and index your document (e.g., an insurance policy). Once indexed, you can ask me questions about its content.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-bar">
+      <h2 class="text-sm font-semibold text-gray-800 mb-2">Step 2: Ask a Question</h2>
+      <div class="input-group">
+        <input type="text" id="user-query" placeholder="Ask your question about the indexed document..." class="p-3 text-base" disabled>
+        <button id="send-button" class="font-semibold disabled:opacity-60" disabled>
+          Send
+        </button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  window.__generative_api_key = "ADD YOUR GENERATIVE AI API KEY HERE";
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
+
+const appId = 'default-app-id';
+
+const firebaseConfig = {
+  apiKey: "ADD YOUR API KEY HERE",
+  authDomain: "documentqa-8b6e3.firebaseapp.com",
+  projectId: "documentqa-8b6e3",
+  storageBucket: "documentqa-8b6e3.appspot.com",
+  messagingSenderId: "949197429755",
+  appId: "1:949197429755:web:96ffcd865e1bafa1e2c95e",
+  measurementId: "G-7B1N5C96QZ"
+};
+
+const RAG_CONFIG = {
+  appId,
+  CHUNK_SIZE: 1000,
+  CHUNK_OVERLAP: 200,
+  EMBEDDING_MODEL: "models/embedding-001",
+  GENERATION_MODEL: "gemini-2.5-flash",
+  CHUNKS_COLLECTION_BASE: `artifacts/${appId}/users`
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const auth = getAuth(firebaseApp);
+const db = getFirestore(firebaseApp);
+
+const indexButton = document.getElementById('index-button');
+const fileInput = document.getElementById('document-input');
+const userQueryInput = document.getElementById('user-query');
+const sendButton = document.getElementById('send-button');
+const chatHistory = document.getElementById('chat-history');
+const userStatusEl = document.getElementById('user-status');
+const indexingStatus = document.getElementById('indexing-status');
+
+window.userId = null;
+window.isIndexed = false;
+window.currentDocumentId = null;
+
+function appendMessage(sender, text) {
+  const isUser = sender === 'user';
+  const bubbleClass = isUser ? 'user-bubble' : 'agent-bubble';
+  const alignment = isUser ? 'justify-end' : 'justify-start';
+  const messageDiv = document.createElement('div');
+  messageDiv.className = `flex ${alignment}`;
+  messageDiv.innerHTML = `<div class="chat-bubble ${bubbleClass} p-3 shadow whitespace-pre-wrap">${escapeHtml(text)}</div>`;
+  chatHistory.appendChild(messageDiv);
+  chatHistory.scrollTop = chatHistory.scrollHeight;
+  return messageDiv.querySelector('.chat-bubble');
+}
+
+function escapeHtml(str = '') {
+  return String(str)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+    .replaceAll('\n', '<br/>');
+}
+
+function setUIState(isProcessing) {
+  const hasFile = fileInput && fileInput.files && fileInput.files.length > 0;
+  indexButton.disabled = isProcessing || !hasFile || !window.userId;
+  fileInput.disabled = isProcessing;
+  userQueryInput.disabled = isProcessing || !window.isIndexed;
+  sendButton.disabled = isProcessing || !window.isIndexed;
+}
+
+async function initializeAuth() {
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      window.userId = user.uid;
+      userStatusEl.textContent = `User: ${window.userId.substring(0, 8)}...`;
+      indexButton.disabled = false;
+      fileInput.disabled = false;
+    } else {
+      window.userId = null;
+      userStatusEl.textContent = 'Connecting...';
+    }
+  });
+  try {
+    const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+    if (token) await signInWithCustomToken(auth, token);
+    else await signInAnonymously(auth);
+  } catch (err) {
+    console.error('Auth failed:', err);
+    userStatusEl.textContent = 'Auth Failed';
+  }
+}
+
+initializeAuth();
+
+async function extractTextFromFile(file) {
+  const name = file.name.toLowerCase();
+  const buffer = await file.arrayBuffer();
+
+  if (name.endsWith('.pdf')) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js`;
+    const pdfData = new Uint8Array(buffer);
+    const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
+    let text = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      text += textContent.items.map(item => item.str).join(' ') + '\n\n';
+    }
+    return text;
+  } else if (name.endsWith('.docx')) {
+    const result = await mammoth.extractRawText({ array: new Uint8Array(buffer) });
+    return result.value;
+  } else if (name.endsWith('.txt')) {
+    return new TextDecoder('utf-8').decode(buffer);
+  } else {
+    throw new Error('Unsupported file type. Use PDF, DOCX or TXT.');
+  }
+}
+
+function simpleSplitter(text, chunkSize, chunkOverlap) {
+  const chunks = [];
+  for (let i = 0; i < text.length; i += chunkSize - chunkOverlap) {
+    chunks.push(text.substring(i, i + chunkSize));
+  }
+  return chunks.filter(c => c.trim().length > 50);
+}
+
+async function fetchWithRetry(url, options) {
+  for (let i = 0; i < 5; i++) {
+    try {
+      const resp = await fetch(url, options);
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => ({}));
+        throw new Error(`API error ${resp.status}: ${body.error?.message || resp.statusText}`);
+      }
+      return await resp.json();
+    } catch (err) {
+      if (i === 4) throw err;
+      await new Promise(r => setTimeout(r, Math.pow(2, i) * 1000));
+    }
+  }
+}
+
+async function uploadAndIndexDocument() {
+  if (!window.userId) return;
+  const file = fileInput.files[0];
+  if (!file) return;
+  setUIState(true);
+  indexingStatus.textContent = 'Extracting text...';
+
+  try {
+    const text = await extractTextFromFile(file);
+    const chunks = simpleSplitter(text, RAG_CONFIG.CHUNK_SIZE, RAG_CONFIG.CHUNK_OVERLAP);
+    indexingStatus.textContent = `Creating ${chunks.length} embeddings...`;
+
+    const apiKey = window.__generative_api_key;
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/embedding-001:batchEmbedContents?key=${apiKey}`;
+    const payload = {
+      requests: chunks.map(chunk => ({
+        model: "models/embedding-001",
+        content: { parts: [{ text: chunk }] }
+      }))
+    };
+
+    const embedResult = await fetchWithRetry(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const embeddings = embedResult.embeddings.map(e => e.values);
+    const documentId = file.name.replace(/[^a-z0-9]/gi, '_').toLowerCase() + "_" + Date.now();
+    const docRef = doc(db, RAG_CONFIG.CHUNKS_COLLECTION_BASE, window.userId, 'document_chunks', documentId);
+    const chunksToStore = chunks.map((chunk, i) => ({
+      text: chunk, vector: embeddings[i], source: file.name, chunkIndex: i
+    }));
+
+    await setDoc(docRef, {
+      documentName: file.name,
+      timestamp: Date.now(),
+      totalChunks: chunksToStore.length,
+      chunks: JSON.stringify(chunksToStore)
+    });
+
+    window.isIndexed = true;
+    window.currentDocumentId = documentId;
+    indexingStatus.textContent = `Indexed ${chunksToStore.length} chunks successfully.`;
+    appendMessage('agent', `Indexing complete. Document ID: ${documentId}`);
+  } catch (err) {
+    console.error(err);
+    indexingStatus.textContent = `Error: ${err.message}`;
+    appendMessage('agent', `Indexing failed: ${err.message}`);
+  } finally {
+    setUIState(false);
+  }
+}
+
+function cosineSimilarity(a, b) {
+  if (!a || !b || a.length !== b.length) return 0;
+  let dot = 0, magA = 0, magB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    magA += a[i] ** 2;
+    magB += b[i] ** 2;
+  }
+  return dot / (Math.sqrt(magA) * Math.sqrt(magB) || 1);
+}
+
+async function retrieveRelevantChunks(qv, topK = 5) {
+  const docRef = doc(db, RAG_CONFIG.CHUNKS_COLLECTION_BASE, window.userId, 'document_chunks', window.currentDocumentId);
+  const snap = await getDoc(docRef);
+  if (!snap.exists()) return [];
+  const all = JSON.parse(snap.data().chunks || '[]');
+  const scored = all.map(c => ({ text: c.text, sim: cosineSimilarity(qv, c.vector) }));
+  scored.sort((a, b) => b.sim - a.sim);
+  return scored.slice(0, topK).filter(c => c.sim > 0.7);
+}
+
+async function handleUserQuery() {
+  const userQuery = userQueryInput.value.trim();
+  if (!userQuery) return;
+  appendMessage('user', userQuery);
+  const bubble = appendMessage('agent', 'Thinking...');
+  setUIState(true);
+
+  try {
+    const apiKey = window.__generative_api_key;
+    const qEmbed = await fetchWithRetry(
+      `https://generativelanguage.googleapis.com/v1beta/models/embedding-001:embedContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: "models/embedding-001",
+          content: { parts: [{ text: userQuery }] }
+        })
+      }
+    );
+    const qVec = qEmbed.embedding?.values || [];
+    const relevant = await retrieveRelevantChunks(qVec);
+    if (!relevant.length) {
+      bubble.innerHTML = escapeHtml("I apologize, but I can only answer questions about the insurance document. Can you raise your query about the document?");
+      setUIState(false);
+      return;
+    }
+
+    const context = relevant.map(r => r.text).join('\n\n---\n\n');
+    const prompt = `
+You are an expert insurance advisor. Answer only from CONTEXT.
+If not found, say: 'I apologize, but I can only answer questions about the insurance document. Can you raise your query about the document?'
+
+CONTEXT:
+${context}
+
+QUESTION: ${userQuery}
+`;
+
+    const gen = await fetchWithRetry(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], temperature: 0 })
+      }
+    );
+
+    const text = gen.candidates?.[0]?.content?.parts?.[0]?.text || "No response.";
+    bubble.innerHTML = escapeHtml(text);
+  } catch (err) {
+    console.error(err);
+    bubble.innerHTML = escapeHtml(`Error: ${err.message}`);
+  } finally {
+    setUIState(false);
+  }
+}
+
+indexButton.addEventListener('click', uploadAndIndexDocument);
+sendButton.addEventListener('click', handleUserQuery);
+fileInput.addEventListener('change', () => setUIState(false));
+setTimeout(() => setUIState(false), 300);
+</script>
+</body>
+</html>
