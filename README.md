@@ -105,6 +105,11 @@ const FIREBASE_CONFIG = {
     projectId: "documentqa-8b6e3",
     // ... complete the rest of your Firebase config fields
 };
-###"Main page"
-<img width="1919" height="1126" alt="image" src="https://github.com/user-attachments/assets/8127982e-ad37-4e0e-aa61-23a401fb478c" />
+```
+
+---
+
+### **Main page**
+![Main Page Screenshot](https://github.com/user-attachments/assets/8127982e-ad37-4e0e-aa61-23a401fb478c)
+
 
